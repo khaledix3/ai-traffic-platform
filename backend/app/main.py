@@ -1,11 +1,12 @@
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
- 
+
 from .database import get_db
-from .models import User
-from .schemas import UserCreate, UserLogin, UserResponse
 from .dependencies import get_current_user
+from .models import User
+from .routers.traffic import router as traffic_router
+from .schemas import UserCreate, UserLogin, UserResponse
 from .security import (
     create_access_token,
     hash_password,
@@ -13,16 +14,14 @@ from .security import (
 )
 
 
-app = FastAPI(
-    title="AI Traffic Platform API"
-)
+app = FastAPI(title="AI Traffic Platform API")
+
+app.include_router(traffic_router)
 
 
 @app.get("/")
 def home():
-    return {
-        "message": "AI Traffic Platform API is running"
-    }
+    return {"message": "AI Traffic Platform API is running"}
 
 
 @app.post(
@@ -35,9 +34,7 @@ def register_user(
     db: Session = Depends(get_db),
 ):
     existing_user = db.scalar(
-        select(User).where(
-            User.email == user_data.email
-        )
+        select(User).where(User.email == user_data.email)
     )
 
     if existing_user:
@@ -48,9 +45,7 @@ def register_user(
 
     new_user = User(
         email=user_data.email,
-        hashed_password=hash_password(
-            user_data.password
-        ),
+        hashed_password=hash_password(user_data.password),
     )
 
     db.add(new_user)
@@ -66,9 +61,7 @@ def login_user(
     db: Session = Depends(get_db),
 ):
     user = db.scalar(
-        select(User).where(
-            User.email == login_data.email
-        )
+        select(User).where(User.email == login_data.email)
     )
 
     if not user:
@@ -92,6 +85,8 @@ def login_user(
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+
 @app.get(
     "/auth/me",
     response_model=UserResponse,
