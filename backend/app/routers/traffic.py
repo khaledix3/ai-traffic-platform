@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session
 
@@ -180,4 +181,114 @@ def get_weather_traffic(
             "record_count": row.record_count,
         }
         for row in results
+        
     ]
+@router.get("/filter-summary")
+def get_filtered_traffic_summary(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    weather: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be before end_date",
+        )
+
+    conditions = []
+
+    if start_date:
+        conditions.append(
+            TrafficRecord.date_time >= start_date
+        )
+
+    if end_date:
+        conditions.append(
+            TrafficRecord.date_time <= end_date
+        )
+
+    if weather:
+        conditions.append(
+            func.lower(TrafficRecord.weather_main)
+            == weather.lower()
+        )
+
+    query = select(
+        func.count(TrafficRecord.id),
+        func.avg(TrafficRecord.traffic_volume),
+        func.min(TrafficRecord.traffic_volume),
+        func.max(TrafficRecord.traffic_volume),
+    )
+
+    if conditions:
+        query = query.where(*conditions)
+
+    result = db.execute(query).one()
+
+    total_records, average_volume, min_volume, max_volume = result
+
+    return {
+        "total_records": total_records,
+        "average_traffic_volume": (
+            round(float(average_volume), 2)
+            if average_volume is not None
+            else None
+        ),
+        "minimum_traffic_volume": min_volume,
+        "maximum_traffic_volume": max_volume,
+        
+    }
+@router.get("/weather-options")
+def get_weather_options(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    results = db.scalars(
+        select(TrafficRecord.weather_main)
+        .distinct()
+        .order_by(TrafficRecord.weather_main)
+    ).all()
+
+    return {
+        "weather_options": results
+    }
+
+@router.get("/date-range")
+def get_date_range(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = db.execute(
+        select(
+            func.min(TrafficRecord.date_time),
+            func.max(TrafficRecord.date_time),
+        )
+    ).one()
+
+    start_date, end_date = result
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+
+@router.get("/date-range")
+def get_date_range(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = db.execute(
+        select(
+            func.min(TrafficRecord.date_time),
+            func.max(TrafficRecord.date_time),
+        )
+    ).one()
+
+    start_date, end_date = result
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+    }
