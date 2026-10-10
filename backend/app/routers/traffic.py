@@ -273,22 +273,3 @@ def get_date_range(
         "start_date": start_date,
         "end_date": end_date,
     }
-
-@router.get("/date-range")
-def get_date_range(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    result = db.execute(
-        select(
-            func.min(TrafficRecord.date_time),
-            func.max(TrafficRecord.date_time),
-        )
-    ).one()
-
-    start_date, end_date = result
-
-    return {
-        "start_date": start_date,
-        "end_date": end_date,
-    }
