@@ -10,9 +10,12 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
+
+/* LOGIN */
 
 .login-page {
   min-height: 100vh;
@@ -56,6 +59,8 @@ input {
   color: white;
 }
 
+/* DASHBOARD */
+
 .dashboard {
   max-width: 1200px;
   margin: auto;
@@ -92,6 +97,8 @@ input {
   font-size: 28px;
 }
 
+/* CHARTS */
+
 .chart-card {
   margin-top: 28px;
   background: white;
@@ -111,10 +118,72 @@ input {
   gap: 24px;
 }
 
+/* FILTERS */
+
+.filters-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 16px;
+  align-items: end;
+  background: white;
+  padding: 22px;
+  margin-bottom: 28px;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-field label {
+  font-weight: 600;
+}
+
+.filter-field input,
+.filter-field select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 16px;
+  cursor: pointer;
+  background: #111827;
+  color: white;
+  white-space: nowrap;
+}
+
+.filter-actions .secondary-button {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.filter-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ERRORS */
+
 .error-message {
   color: #b91c1c;
   margin-top: 12px;
 }
+
+/* RESPONSIVE */
 
 @media (max-width: 900px) {
   .summary-grid {
@@ -124,10 +193,18 @@ input {
   .charts-grid {
     grid-template-columns: 1fr;
   }
+
+  .filters-card {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 550px) {
   .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-card {
     grid-template-columns: 1fr;
   }
 

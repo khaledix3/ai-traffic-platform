@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session
@@ -12,6 +13,38 @@ router = APIRouter(
     prefix="/traffic",
     tags=["Traffic"],
 )
+
+
+def build_traffic_conditions(
+    start_date: datetime | None,
+    end_date: datetime | None,
+    weather: str | None,
+):
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date must be before end_date",
+        )
+
+    conditions = []
+
+    if start_date:
+        conditions.append(
+            TrafficRecord.date_time >= start_date
+        )
+
+    if end_date:
+        conditions.append(
+            TrafficRecord.date_time <= end_date
+        )
+
+    if weather:
+        conditions.append(
+            func.lower(TrafficRecord.weather_main)
+            == weather.lower()
+        )
+
+    return conditions
 
 
 @router.get("/summary")
@@ -32,7 +65,10 @@ def get_traffic_summary(
 
     return {
         "total_records": total_records,
-        "average_traffic_volume": round(float(average_volume), 2),
+        "average_traffic_volume": round(
+            float(average_volume),
+            2,
+        ),
         "minimum_traffic_volume": min_volume,
         "maximum_traffic_volume": max_volume,
     }
@@ -40,21 +76,42 @@ def get_traffic_summary(
 
 @router.get("/hourly")
 def get_hourly_traffic(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    weather: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    hour = extract("hour", TrafficRecord.date_time)
+    conditions = build_traffic_conditions(
+        start_date,
+        end_date,
+        weather,
+    )
 
-    results = db.execute(
-        select(
-            hour.label("hour"),
-            func.avg(TrafficRecord.traffic_volume).label(
-                "average_traffic_volume"
-            ),
-        )
+    hour = extract(
+        "hour",
+        TrafficRecord.date_time,
+    ).label("hour")
+
+    average_volume = func.avg(
+        TrafficRecord.traffic_volume
+    ).label("average_traffic_volume")
+
+    query = select(
+        hour,
+        average_volume,
+    )
+
+    if conditions:
+        query = query.where(*conditions)
+
+    query = (
+        query
         .group_by(hour)
         .order_by(hour)
-    ).all()
+    )
+
+    results = db.execute(query).all()
 
     return [
         {
@@ -102,13 +159,22 @@ def get_peak_hours(
         }
         for row in results
     ]
-    
+
 
 @router.get("/weekday")
 def get_weekday_traffic(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    weather: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    conditions = build_traffic_conditions(
+        start_date,
+        end_date,
+        weather,
+    )
+
     day_number = extract(
         "isodow",
         TrafficRecord.date_time,
@@ -118,14 +184,21 @@ def get_weekday_traffic(
         TrafficRecord.traffic_volume
     ).label("average_traffic_volume")
 
-    results = db.execute(
-        select(
-            day_number,
-            average_volume,
-        )
+    query = select(
+        day_number,
+        average_volume,
+    )
+
+    if conditions:
+        query = query.where(*conditions)
+
+    query = (
+        query
         .group_by(day_number)
         .order_by(day_number)
-    ).all()
+    )
+
+    results = db.execute(query).all()
 
     day_names = {
         1: "Monday",
@@ -148,11 +221,21 @@ def get_weekday_traffic(
         for row in results
     ]
 
+
 @router.get("/weather")
 def get_weather_traffic(
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    weather: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    conditions = build_traffic_conditions(
+        start_date,
+        end_date,
+        weather,
+    )
+
     average_volume = func.avg(
         TrafficRecord.traffic_volume
     ).label("average_traffic_volume")
@@ -161,15 +244,22 @@ def get_weather_traffic(
         TrafficRecord.id
     ).label("record_count")
 
-    results = db.execute(
-        select(
-            TrafficRecord.weather_main,
-            average_volume,
-            record_count,
-        )
+    query = select(
+        TrafficRecord.weather_main,
+        average_volume,
+        record_count,
+    )
+
+    if conditions:
+        query = query.where(*conditions)
+
+    query = (
+        query
         .group_by(TrafficRecord.weather_main)
         .order_by(average_volume.desc())
-    ).all()
+    )
+
+    results = db.execute(query).all()
 
     return [
         {
@@ -181,8 +271,9 @@ def get_weather_traffic(
             "record_count": row.record_count,
         }
         for row in results
-        
     ]
+
+
 @router.get("/filter-summary")
 def get_filtered_traffic_summary(
     start_date: datetime | None = None,
@@ -191,29 +282,11 @@ def get_filtered_traffic_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if start_date and end_date and start_date > end_date:
-        raise HTTPException(
-            status_code=400,
-            detail="start_date must be before end_date",
-        )
-
-    conditions = []
-
-    if start_date:
-        conditions.append(
-            TrafficRecord.date_time >= start_date
-        )
-
-    if end_date:
-        conditions.append(
-            TrafficRecord.date_time <= end_date
-        )
-
-    if weather:
-        conditions.append(
-            func.lower(TrafficRecord.weather_main)
-            == weather.lower()
-        )
+    conditions = build_traffic_conditions(
+        start_date,
+        end_date,
+        weather,
+    )
 
     query = select(
         func.count(TrafficRecord.id),
@@ -238,8 +311,9 @@ def get_filtered_traffic_summary(
         ),
         "minimum_traffic_volume": min_volume,
         "maximum_traffic_volume": max_volume,
-        
     }
+
+
 @router.get("/weather-options")
 def get_weather_options(
     db: Session = Depends(get_db),
@@ -252,8 +326,9 @@ def get_weather_options(
     ).all()
 
     return {
-        "weather_options": results
+        "weather_options": results,
     }
+
 
 @router.get("/date-range")
 def get_date_range(
