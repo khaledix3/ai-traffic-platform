@@ -1,10 +1,13 @@
+
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from fastapi.middleware.cors import CORSMiddleware
+
 from .database import get_db
 from .dependencies import get_current_user
 from .models import User
+from .routers.prediction import router as prediction_router
 from .routers.traffic import router as traffic_router
 from .schemas import UserCreate, UserLogin, UserResponse
 from .security import (
@@ -14,7 +17,11 @@ from .security import (
 )
 
 
+# Create FastAPI application
 app = FastAPI(title="AI Traffic Platform API")
+
+
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -24,15 +31,23 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-) 
+)
+
+
+# Register routers
 app.include_router(traffic_router)
+app.include_router(prediction_router)
 
 
+# Home
 @app.get("/")
 def home():
-    return {"message": "AI Traffic Platform API is running"}
+    return {
+        "message": "AI Traffic Platform API is running"
+    }
 
 
+# Register
 @app.post(
     "/auth/register",
     response_model=UserResponse,
@@ -64,6 +79,7 @@ def register_user(
     return new_user
 
 
+# Login
 @app.post("/auth/login")
 def login_user(
     login_data: UserLogin,
@@ -96,6 +112,7 @@ def login_user(
     }
 
 
+# Current user
 @app.get(
     "/auth/me",
     response_model=UserResponse,

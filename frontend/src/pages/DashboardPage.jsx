@@ -1,3 +1,4 @@
+import PredictionForm from "../components/PredictionForm";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -145,7 +146,8 @@ function DashboardPage() {
 
         <button onClick={logout}>Logout</button>
       </header>
-
+      <PredictionForm />
+      
       <form className="filters-card" onSubmit={applyFilters}>
         <div className="filter-field">
           <label>Start Date</label>
